@@ -3,12 +3,14 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import joblib
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.preprocessing import StandardScaler
+from sklearn.naive_bayes import GaussianNB
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
 
 # Load data
 df = pd.read_csv('SaYoPillow.csv')
-model = joblib.load("final_model.joblib")
 df = df.rename(columns={
     'sr.1': 'Sleep Duration',
     'hr': 'Heart Rate',
@@ -105,12 +107,21 @@ elif visualization == "Feature Impact on Stress":
 
 elif visualization == "Predicted vs Actual Stress Levels":
     st.header("Predicted vs Actual Stress Levels")
+    X = df[['Sleep Duration', 'Heart Rate', 'Snoring Rate', 'Respiration Rate', 'Body Temperature', 'Limb Movement', 'Blood Oxygen Levels','Eye Movement']]
+    y = df['Stress Level']
 
-    # Prepare the data by separating features and target
-    X = df.drop("Stress Level", axis=1)
-    y = df["Stress Level"]
-    
-    # Generate predictions using the loaded model
+    # Train-Test Split for dataframe 1
+    X1_train, X1_test, y1_train, y1_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Feature Scaling
+    scaler1 = StandardScaler()
+    X1_train_scaled = scaler1.fit_transform(X)
+
+    # Train Gaussian Naive Bayes model
+    model = GaussianNB(var_smoothing = 1)
+    model.fit(X, y)
+
+    # Predictions and Evaluation for dataframe 1
     y_pred = model.predict(X)
     
     # Calculate accuracy
