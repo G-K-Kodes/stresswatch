@@ -1,13 +1,12 @@
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.figure_factory as ff
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.preprocessing import StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import train_test_split
-from imblearn.over_sampling import SMOTE
 
 # Load data
 df = pd.read_csv('SaYoPillow.csv')
@@ -15,13 +14,13 @@ df = df.rename(columns={
     'sr.1': 'Sleep Duration',
     'hr': 'Heart Rate',
     'sl': 'Stress Level',
-    'sr':'Snoring Rate',
-    'rr':'Respiration Rate',
-    't':'Body Temperature',
-    'lm':'Limb Movement',
-    'bo':'Blood Oxygen Levels',
-    'rem':'Eye Movement',
-    })
+    'sr': 'Snoring Rate',
+    'rr': 'Respiration Rate',
+    't': 'Body Temperature',
+    'lm': 'Limb Movement',
+    'bo': 'Blood Oxygen Levels',
+    'rem': 'Eye Movement',
+})
 
 # Title and Description
 st.title("Stress Level Analysis Dashboard")
@@ -44,20 +43,16 @@ if visualization == "Data Overview":
     
     # Display stress level distribution
     st.subheader("Stress Level Distribution")
-    fig, ax = plt.subplots()
-    sns.countplot(data=df, x='Stress Level', ax=ax)
-    ax.set_title("Distribution of Stress Levels")
-    st.pyplot(fig)
+    fig = px.histogram(df, x="Stress Level", title="Distribution of Stress Levels")
+    st.plotly_chart(fig)
     
     # Show distributions for selected features
     st.subheader("Distributions of Key Features")
     selected_features = st.multiselect("Select features to display distributions", df.columns.tolist(), 
                                        default=["Sleep Duration", "Heart Rate", "Snoring Rate", "Body Temperature"])
     for feature in selected_features:
-        fig, ax = plt.subplots()
-        sns.histplot(df[feature], kde=True, ax=ax)
-        ax.set_title(f"Distribution of {feature}")
-        st.pyplot(fig)
+        fig = px.histogram(df, x=feature, marginal="violin", title=f"Distribution of {feature}", nbins=30)
+        st.plotly_chart(fig)
 
 # Correlation Analysis Section
 elif visualization == "Correlation Analysis":
@@ -65,21 +60,24 @@ elif visualization == "Correlation Analysis":
     
     # Correlation heatmap
     st.subheader("Correlation Heatmap")
-    fig, ax = plt.subplots(figsize=(10, 8))
     corr_matrix = df.corr()
-    sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
-    ax.set_title("Correlation Heatmap of Features")
-    st.pyplot(fig)
+    fig = ff.create_annotated_heatmap(
+        z=corr_matrix.values.round(2),
+        x=list(corr_matrix.columns),
+        y=list(corr_matrix.columns),
+        colorscale="Viridis",
+        showscale=True
+    )
+    fig.update_layout(title="Correlation Heatmap of Features", autosize=True)
+    st.plotly_chart(fig)
     
     # Scatter plots for relationship with Stress Level
     st.subheader("Feature vs. Stress Level Scatter Plots")
     selected_scatter_features = st.multiselect("Select features for scatter plots", [x for x in df.columns.tolist() if x != 'Stress Level'], 
                                                default=["Sleep Duration", "Heart Rate", "Body Temperature"])
     for feature in selected_scatter_features:
-        fig, ax = plt.subplots()
-        sns.scatterplot(data=df, x=feature, y="Stress Level", ax=ax)
-        ax.set_title(f"{feature} vs. Stress Level")
-        st.pyplot(fig)
+        fig = px.scatter(df, x=feature, y="Stress Level", trendline="ols", title=f"{feature} vs. Stress Level")
+        st.plotly_chart(fig)
 
 # Feature Impact on Stress Level Section
 elif visualization == "Feature Impact on Stress":
@@ -87,27 +85,24 @@ elif visualization == "Feature Impact on Stress":
     
     # Box plots for feature distribution by Stress Level
     st.subheader("Box Plots of Features by Stress Level")
-    selected_boxplot_features = st.multiselect("Select features for box plots",[x for x in df.columns.tolist() if x != 'Stress Level'], 
+    selected_boxplot_features = st.multiselect("Select features for box plots", [x for x in df.columns.tolist() if x != 'Stress Level'], 
                                                default=["Snoring Rate", "Respiration Rate", "Blood Oxygen Levels"])
     for feature in selected_boxplot_features:
-        fig, ax = plt.subplots()
-        sns.boxplot(data=df, x="Stress Level", y=feature, ax=ax)
-        ax.set_title(f"{feature} by Stress Level")
-        st.pyplot(fig)
+        fig = px.box(df, x="Stress Level", y=feature, title=f"{feature} by Stress Level")
+        st.plotly_chart(fig)
     
     # Violin plots for feature distribution by Stress Level
     st.subheader("Violin Plots of Features by Stress Level")
     selected_violin_features = st.multiselect("Select features for violin plots", [x for x in df.columns.tolist() if x != 'Stress Level'], 
                                               default=["Heart Rate", "Eye Movement"])
     for feature in selected_violin_features:
-        fig, ax = plt.subplots()
-        sns.violinplot(data=df, x="Stress Level", y=feature, ax=ax)
-        ax.set_title(f"{feature} by Stress Level")
-        st.pyplot(fig)
+        fig = px.violin(df, x="Stress Level", y=feature, box=True, points="all", title=f"{feature} by Stress Level")
+        st.plotly_chart(fig)
 
+# Predicted vs Actual Stress Levels Section
 elif visualization == "Predicted vs Actual Stress Levels":
     st.header("Predicted vs Actual Stress Levels")
-    X = df[['Sleep Duration', 'Heart Rate', 'Snoring Rate', 'Respiration Rate', 'Body Temperature', 'Limb Movement', 'Blood Oxygen Levels','Eye Movement']]
+    X = df[['Sleep Duration', 'Heart Rate', 'Snoring Rate', 'Respiration Rate', 'Body Temperature', 'Limb Movement', 'Blood Oxygen Levels', 'Eye Movement']]
     y = df['Stress Level']
 
     # Train-Test Split for dataframe 1
@@ -118,7 +113,7 @@ elif visualization == "Predicted vs Actual Stress Levels":
     X1_train_scaled = scaler1.fit_transform(X)
 
     # Train Gaussian Naive Bayes model
-    model = GaussianNB(var_smoothing = 1)
+    model = GaussianNB(var_smoothing=1)
     model.fit(X, y)
 
     # Predictions and Evaluation for dataframe 1
@@ -136,18 +131,12 @@ elif visualization == "Predicted vs Actual Stress Levels":
     # Confusion matrix heatmap
     st.subheader("Confusion Matrix")
     cm = confusion_matrix(y, y_pred)
-    fig, ax = plt.subplots()
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=model.classes_, yticklabels=model.classes_, ax=ax)
-    ax.set_xlabel("Predicted Label")
-    ax.set_ylabel("True Label")
-    ax.set_title("Confusion Matrix")
-    st.pyplot(fig)
+    fig = px.imshow(cm, text_auto=True, color_continuous_scale="Blues", labels={"color": "Count"})
+    fig.update_layout(title="Confusion Matrix", xaxis_title="Predicted Label", yaxis_title="True Label")
+    st.plotly_chart(fig)
 
     # Scatter plot of actual vs predicted stress levels
     st.subheader("Actual vs Predicted Stress Levels Scatter Plot")
-    fig, ax = plt.subplots()
-    sns.scatterplot(x=y, y=y_pred, ax=ax)
-    ax.set_xlabel("Actual Stress Level")
-    ax.set_ylabel("Predicted Stress Level")
-    ax.set_title("Actual vs Predicted Stress Levels")
-    st.pyplot(fig)
+    fig = px.scatter(x=y, y=y_pred, labels={'x': 'Actual Stress Level', 'y': 'Predicted Stress Level'}, trendline="ols")
+    fig.update_layout(title="Actual vs Predicted Stress Levels")
+    st.plotly_chart(fig)
