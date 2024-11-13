@@ -1,4 +1,4 @@
-# 🎈 Blank app template
+# StressWatch Analytics dashboard
 
 A simple Streamlit app template for you to modify!
 
