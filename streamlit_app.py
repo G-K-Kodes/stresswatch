@@ -3,9 +3,12 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import joblib
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 # Load data
 df = pd.read_csv('SaYoPillow.csv')
+model = joblib.load("final_model.joblib")
 df = df.rename(columns={
     'sr.1': 'Sleep Duration',
     'hr': 'Heart Rate',
@@ -27,7 +30,7 @@ This dashboard provides insights into how various factors such as sleep, respira
 # Sidebar for selecting visualizations
 st.sidebar.title("Navigation")
 visualization = st.sidebar.selectbox("Select a Visualization", 
-                                     ["Data Overview", "Correlation Analysis", "Feature Impact on Stress"])
+                                     ["Data Overview", "Correlation Analysis", "Feature Impact on Stress", "Predicted vs Actual Stress Levels"])
 
 # Data Overview Section
 if visualization == "Data Overview":
@@ -99,3 +102,41 @@ elif visualization == "Feature Impact on Stress":
         sns.violinplot(data=df, x="Stress Level", y=feature, ax=ax)
         ax.set_title(f"{feature} by Stress Level")
         st.pyplot(fig)
+
+elif visualization == "Predicted vs Actual Stress Levels":
+    st.header("Predicted vs Actual Stress Levels")
+
+    # Prepare the data by separating features and target
+    X = df.drop("Stress Level", axis=1)
+    y = df["Stress Level"]
+    
+    # Generate predictions using the loaded model
+    y_pred = model.predict(X)
+    
+    # Calculate accuracy
+    accuracy = accuracy_score(y, y_pred)
+    st.subheader(f"Model Accuracy: {accuracy:.2f}")
+    
+    # Display a classification report
+    st.subheader("Classification Report")
+    report = classification_report(y, y_pred, output_dict=True)
+    st.write(pd.DataFrame(report).transpose())
+
+    # Confusion matrix heatmap
+    st.subheader("Confusion Matrix")
+    cm = confusion_matrix(y, y_pred)
+    fig, ax = plt.subplots()
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=model.classes_, yticklabels=model.classes_, ax=ax)
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("True Label")
+    ax.set_title("Confusion Matrix")
+    st.pyplot(fig)
+
+    # Scatter plot of actual vs predicted stress levels
+    st.subheader("Actual vs Predicted Stress Levels Scatter Plot")
+    fig, ax = plt.subplots()
+    sns.scatterplot(x=y, y=y_pred, ax=ax)
+    ax.set_xlabel("Actual Stress Level")
+    ax.set_ylabel("Predicted Stress Level")
+    ax.set_title("Actual vs Predicted Stress Levels")
+    st.pyplot(fig)
