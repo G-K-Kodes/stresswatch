@@ -7,9 +7,10 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from sklearn.preprocessing import StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import train_test_split
-from scipy.stats import f_oneway
+from scipy.stats import f_oneway, kstest, shapiro
 from statsmodels.stats.weightstats import ztest
 import statsmodels.api as sm
+from statsmodels.formula.api import ols
 import numpy as np
 
 # Load data
@@ -35,7 +36,12 @@ This dashboard provides insights into how various factors such as sleep, respira
 # Sidebar for selecting visualizations
 st.sidebar.title("Navigation")
 visualization = st.sidebar.selectbox("Select a Visualization", 
-                                     ["Data Overview", "Correlation Analysis", "Feature Impact on Stress", "Predicted vs Actual Stress Levels", "Hypothesis Testing"])
+                                     ["Data Overview", 
+                                      "Correlation Analysis", 
+                                      "Feature Impact on Stress", 
+                                      "Predicted vs Actual Stress Levels", 
+                                      "Hypothesis Testing",
+                                      "Normality Testing"])
 
 # Data Overview Section
 if visualization == "Data Overview":
@@ -144,6 +150,7 @@ elif visualization == "Predicted vs Actual Stress Levels":
     fig = px.scatter(x=y, y=y_pred, labels={'x': 'Actual Stress Level', 'y': 'Predicted Stress Level'}, trendline="ols")
     fig.update_layout(title="Actual vs Predicted Stress Levels")
     st.plotly_chart(fig)
+
 elif visualization == "Hypothesis Testing":
     st.header("Hypothesis Testing")
     
@@ -200,3 +207,47 @@ elif visualization == "Hypothesis Testing":
     
     else:
         st.write("Please select at least two features for hypothesis testing.")
+
+elif visualization == "Normality Testing":
+    st.header("Normality Testing")
+    
+    # Feature Selection for Normality Testing
+    selected_features = st.multiselect(
+        "Select features for Normality Testing", df.columns.tolist(),
+        default=["Sleep Duration"]
+    )
+    
+    # For each selected feature, perform Normality Testing
+    for feature in selected_features:
+        st.subheader(f"Normality Testing for `{feature}`")
+        
+        # Extract the data for the feature
+        data = df[feature]
+        
+        # Perform Kolmogorov-Smirnov (KS) Test for normality
+        ks_stat, ks_p_value = kstest(data, 'norm', args=(data.mean(), data.std()))
+        
+        # Perform Shapiro-Wilk Test for normality
+        shapiro_stat, shapiro_p_value = shapiro(data)
+        
+        # Display Results for KS Test
+        st.write(f"Kolmogorov-Smirnov Test results:")
+        st.write(f"KS-statistic: {ks_stat:.4f}")
+        st.write(f"KS-p-value: {ks_p_value:.4f}")
+        if ks_p_value < 0.05:
+            st.write("Conclusion: Reject the null hypothesis. Data is not normally distributed according to the KS test.")
+        else:
+            st.write("Conclusion: Fail to reject the null hypothesis. Data appears normally distributed according to the KS test.")
+        
+        # Display Results for Shapiro-Wilk Test
+        st.write(f"Shapiro-Wilk Test results:")
+        st.write(f"Shapiro-statistic: {shapiro_stat:.4f}")
+        st.write(f"Shapiro-p-value: {shapiro_p_value:.4f}")
+        if shapiro_p_value < 0.05:
+            st.write("Conclusion: Reject the null hypothesis. Data is not normally distributed according to the Shapiro-Wilk test.")
+        else:
+            st.write("Conclusion: Fail to reject the null hypothesis. Data appears normally distributed according to the Shapiro-Wilk test.")
+    
+    # If no features selected
+    if len(selected_features) == 0:
+        st.write("Please select at least one feature to perform normality testing.")
