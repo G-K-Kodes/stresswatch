@@ -7,6 +7,10 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from sklearn.preprocessing import StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import train_test_split
+from scipy.stats import f_oneway
+from statsmodels.stats.weightstats import ztest
+import statsmodels.api as sm
+import numpy as np
 
 # Load data
 df = pd.read_csv('SaYoPillow.csv')
@@ -31,7 +35,7 @@ This dashboard provides insights into how various factors such as sleep, respira
 # Sidebar for selecting visualizations
 st.sidebar.title("Navigation")
 visualization = st.sidebar.selectbox("Select a Visualization", 
-                                     ["Data Overview", "Correlation Analysis", "Feature Impact on Stress", "Predicted vs Actual Stress Levels"])
+                                     ["Data Overview", "Correlation Analysis", "Feature Impact on Stress", "Predicted vs Actual Stress Levels", "Hypothesis Testing"])
 
 # Data Overview Section
 if visualization == "Data Overview":
@@ -43,12 +47,12 @@ if visualization == "Data Overview":
     
     # Display stress level distribution
     st.subheader("Stress Level Distribution")
-    fig = px.histogram(df, x="Stress Level", title="Distribution of Stress Levels")
+    fig = px.histogram(df, x="Stress Level", title="Distribution of Stress Levels", nbins = 30)
     st.plotly_chart(fig)
     
     # Show distributions for selected features
     st.subheader("Distributions of Key Features")
-    selected_features = st.multiselect("Select features to display distributions", df.columns.tolist(), 
+    selected_features = st.multiselect("Select features to display distributions", [x for x in df.columns.tolist() if x != 'Stress Level'], 
                                        default=["Sleep Duration", "Heart Rate", "Snoring Rate", "Body Temperature"])
     for feature in selected_features:
         fig = px.histogram(df, x=feature, marginal="violin", title=f"Distribution of {feature}", nbins=30)
@@ -140,3 +144,59 @@ elif visualization == "Predicted vs Actual Stress Levels":
     fig = px.scatter(x=y, y=y_pred, labels={'x': 'Actual Stress Level', 'y': 'Predicted Stress Level'}, trendline="ols")
     fig.update_layout(title="Actual vs Predicted Stress Levels")
     st.plotly_chart(fig)
+elif visualization == "Hypothesis Testing":
+    st.header("Hypothesis Testing")
+    
+    # Feature Selection for Hypothesis Testing
+    selected_features = st.multiselect(
+        "Select features for Hypothesis Testing",df.columns.tolist(),
+        default=["Sleep Duration", "Stress Level"]
+    )
+    
+    # If exactly two features are selected, perform a two-sample Z-test
+    if len(selected_features) == 2:
+        st.subheader("Two-Sample Z-Test")
+        
+        # Extract data for the selected features
+        data1 = df[selected_features[0]]
+        data2 = df[selected_features[1]]
+        
+        # Perform Z-test
+        z_stat, p_value = ztest(data1, data2)
+        
+        # Display Z-test results
+        st.write(f"Testing the means of `{selected_features[0]}` and `{selected_features[1]}`:")
+        st.write(f"Z-statistic: {z_stat:.2f}")
+        st.write(f"P-value: {p_value:.4f}")
+        
+        # Hypothesis conclusion
+        alpha = 0.05  # Significance level
+        if p_value < alpha:
+            st.write("Conclusion: Reject the null hypothesis. The means of the two samples are significantly different.")
+        else:
+            st.write("Conclusion: Fail to reject the null hypothesis. No significant difference between the means of the two samples.")
+    
+    # If three or more features are selected, perform ANOVA
+    elif len(selected_features) >= 3:
+        st.subheader("ANOVA Test")
+        
+        # Extract data for the selected features
+        data_groups = [df[feature] for feature in selected_features]
+        
+        # Perform ANOVA
+        f_stat, p_value = f_oneway(*data_groups)
+        
+        # Display ANOVA results
+        st.write(f"Testing the means of the selected features: {', '.join(selected_features)}")
+        st.write(f"F-statistic: {f_stat:.2f}")
+        st.write(f"P-value: {p_value:.4f}")
+        
+        # Hypothesis conclusion
+        alpha = 0.05  # Significance level
+        if p_value < alpha:
+            st.write("Conclusion: Reject the null hypothesis. There is a significant difference in means across the selected features.")
+        else:
+            st.write("Conclusion: Fail to reject the null hypothesis. No significant difference in means across the selected features.")
+    
+    else:
+        st.write("Please select at least two features for hypothesis testing.")
